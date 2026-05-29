@@ -2,12 +2,14 @@ from models import Job,User
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from .schemas import JobCreate
+from redisclient import redis_client
 
 def create_job(db:Session,job_data:JobCreate,current_user:User):
     new_job=Job(task_type=job_data.task_type,payload=job_data.payload,user_id=current_user.id)
 
     db.add(new_job)
     db.commit()
+    redis_client.rpush("job_queue",new_job.id)
     db.refresh(new_job)
 
     return new_job

@@ -1,4 +1,4 @@
-from sqlalchemy import String,Column,Integer,DateTime,ForeignKey
+from sqlalchemy import String,Column,Integer,DateTime,ForeignKey,Text
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime,timezone
@@ -17,6 +17,13 @@ class Job(Base):
     created_at=Column(DateTime,default=datetime.now(timezone.utc))
 
     owner=relationship("User",back_populates="jobs")
+
+    result = Column(Text, nullable=True)
+
+    retry_count=Column(Integer,default=0)
+    max_retries=Column(Integer,default=3)
+
+    error_message=Column(Text,nullable=False)
 
 class User(Base):
     __tablename__="users"

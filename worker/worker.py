@@ -9,11 +9,18 @@ from sqlalchemy.orm import Session
 from database import session
 from models import Job
 
+from redisclient import redis_client
+
 #THESE ARE DUMMY JOBS BECAUSE THEY ARE NOT THE FOCUS OF THE PROJECT
 
 def process_job(job:Job):
-    print(f"Processing {job.id} ({job.task_type})")
+    print(f"Processing {job.id}")
+
+    if job.task_type == "broken":
+        raise Exception("Intentional test failure")
+
     time.sleep(2)
+
     if(job.task_type=='email'):
         print(f"Sending email to {job.payload}")
 
@@ -28,33 +35,32 @@ def worker_loop():
         db:Session=session()   
 
         try:
-            job=db.query(Job).filter(Job.status=="pending").first()
+            job_data=redis_client.blpop("job_queue")
+            job_id=int(job_data[1])
+            job=db.query(Job).filter(Job.id==job_id).first()
 
-            if(job):
-                job.status="running"
-                db.commit()
+            if not job:
+                continue
 
-                process_job(job)
-                job.status="completed"
-                db.commit()
+            job.status="running"
+            db.commit()
 
-            else:
-                time.sleep(3)
+            process_job(job)
 
-        except Exception:
+            job.status="completed"
+            db.commit()
+
+        except Exception as e:
+            print(e)
             if(job):
                 job.status="failed"
+                job.error_message=str(e)
+                job.retry_count+=1
                 db.commit()
 
         finally:
             db.close()
 
-    
-
-
-
-
-
 if __name__=="__main__":
-    worker_loop()
+    worker_loop()   
 
